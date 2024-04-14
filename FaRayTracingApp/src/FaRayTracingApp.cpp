@@ -2,8 +2,9 @@
 #include "Walnut/EntryPoint.h"
 
 #include "Walnut/Image.h"
-#include "Walnut/Random.h"
 #include "Walnut/Timer.h"
+
+#include "Renderer.h"
 
 class MainLayer : public Walnut::Layer
 {
@@ -22,8 +23,9 @@ public:
 		ImGui::Begin("Viewer");
 		m_viewer_width = ImGui::GetContentRegionAvail().x;
 		m_viewer_height = ImGui::GetContentRegionAvail().y;
-		if (m_image) {
-			ImGui::Image(m_image->GetDescriptorSet(), { (float)m_image->GetWidth(), (float)m_image->GetHeight() });
+		auto final_image = m_renderer.get_final_image();
+		if (final_image) {
+			ImGui::Image(final_image->GetDescriptorSet(), { (float)final_image->GetWidth(), (float)final_image->GetHeight() });
 		}
 		ImGui::End();
 
@@ -33,26 +35,15 @@ public:
 	void Render() {
 		Walnut::Timer timer;
 
-		if (!m_image || m_viewer_width != m_image->GetWidth() || m_viewer_height != m_image->GetHeight()) {
-			m_image = std::make_shared<Walnut::Image>(m_viewer_width, m_viewer_height, Walnut::ImageFormat::RGBA);
+		m_renderer.handle_size(m_viewer_width, m_viewer_height);
+		m_renderer.render();
 
-			delete[] m_image_data;
-			m_image_data = new uint32_t[m_viewer_width * m_viewer_height];
-		}
-
-		for (uint32_t index = 0; index < m_viewer_width * m_viewer_height; index++) {
-			m_image_data[index] = Walnut::Random::UInt();
-			m_image_data[index] |= 0xff000000;
-		}
-
-		m_image->SetData(m_image_data);
 		m_last_render_time = timer.ElapsedMillis();
 	}
 private:
-	std::shared_ptr<Walnut::Image> m_image;
+	Renderer m_renderer;
 	uint32_t m_viewer_width;
 	uint32_t m_viewer_height;
-	uint32_t* m_image_data = nullptr;
 	float m_last_render_time = 0;
 };
 
