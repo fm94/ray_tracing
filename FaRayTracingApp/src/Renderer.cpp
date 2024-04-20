@@ -1,19 +1,20 @@
 #include "Renderer.h"
 #include "Walnut/Random.h"
-#include "utils.h"
+#include "Utils.h"
 
-void Renderer::render()
+void Renderer::render(const Camera& camera)
 {
+	Ray ray;
+	ray.origin = camera.get_position();
+
 	for (uint32_t y=0; y < m_final_image->GetHeight(); y++)
 	{
 		for (uint32_t x = 0; x < m_final_image->GetWidth(); x++)
 		{
-			glm::vec2 coordinates = { (float)x / (float)m_final_image->GetWidth(), (float)y / (float)m_final_image->GetHeight() };
-			// convert from 0,1 to -1,1
-			coordinates = coordinates * 2.0f - 1.0f;
+			ray.direction = camera.get_ray_directions()[x + y * m_final_image->GetWidth()];
 
 			// basically get the color as vec and convert it to 32 bit uint
-			glm::vec4 pixel_color_vec = pixel_shader(coordinates);
+			glm::vec4 pixel_color_vec = trace_ray(ray);
 			pixel_color_vec = glm::clamp(pixel_color_vec, glm::vec4(0.0f), glm::vec4(1.0f));
 			m_final_image_data[x + y * m_final_image->GetWidth()] = Utils::vec_to_rgba(pixel_color_vec);
 		}
@@ -44,22 +45,18 @@ std::shared_ptr<Walnut::Image> Renderer::get_final_image() const
 	return m_final_image;
 }
 
-glm::vec4 Renderer::pixel_shader(glm::vec2 coordinates)
+glm::vec4 Renderer::trace_ray(const Ray& ray)
 {
-	glm::vec3 ray_origin(0.0f, 0.0f, 1.0f);
-	glm::vec3 ray_direction(coordinates.x, coordinates.y, -1.0f);
-	ray_direction = glm::normalize(ray_direction);
-
 	// compute eq coeffs
-	float a = glm::dot(ray_direction, ray_direction);
-	float b = 2.0f * glm::dot(ray_origin, ray_direction);
-	float c = glm::dot(ray_origin, ray_origin) - m_radius * m_radius;
-
+	float a = glm::dot(ray.direction, ray.direction);
+	float b = 2.0f * glm::dot(ray.origin, ray.direction);
+	float c = glm::dot(ray.origin, ray.origin) - m_radius * m_radius;
+	
 	// compute delta
 	float delta_discriminant = b * b - 4.0f * a * c;
 	
 	// negative means no hit
-	if (delta_discriminant < 0) 
+	if (delta_discriminant < 0.0f) 
 	{
 		return glm::vec4(0, 0, 0, 1);
 	}
@@ -68,7 +65,7 @@ glm::vec4 Renderer::pixel_shader(glm::vec2 coordinates)
 	float closest_t = (-b - glm::sqrt(delta_discriminant)) / 2 * a;
 	float other_t = (-b + glm::sqrt(delta_discriminant)) / 2 * a;
 	// solving the equation
-	glm::vec3 nearest_hit_point = ray_origin + ray_direction * closest_t;
+	glm::vec3 nearest_hit_point = ray.origin + ray.direction * closest_t;
 	glm::vec3 nearest_hit_point_normal = glm::normalize(nearest_hit_point); // typically here we consider the origin but it's 0
 
 	// define a light source

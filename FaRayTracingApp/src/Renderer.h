@@ -3,6 +3,8 @@
 #include "Walnut/Image.h"
 #include "memory"
 #include "glm/glm.hpp"
+#include "Camera.h"
+#include "Ray.h"
 
 class Renderer
 {
@@ -11,12 +13,12 @@ public:
 
 	Renderer() = default;
 
-	void render();
+	void render(const Camera& camera);
 	void handle_size(uint32_t width, uint32_t height);
 	std::shared_ptr<Walnut::Image> get_final_image() const;
 
 private:
-	glm::vec4 pixel_shader(glm::vec2 coordinates);
+	glm::vec4 trace_ray(const Ray& ray);
 
 private:
 

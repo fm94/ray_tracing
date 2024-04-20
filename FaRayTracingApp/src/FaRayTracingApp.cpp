@@ -5,10 +5,20 @@
 #include "Walnut/Timer.h"
 
 #include "Renderer.h"
+#include "Camera.h"
+
 
 class MainLayer : public Walnut::Layer
 {
 public:
+	MainLayer(): m_camera(45.0f, 0.1f, 100.0f)
+	{}
+
+	virtual void OnUpdate(float time_step) override
+	{
+		m_camera.on_update(time_step);
+	}
+
 	virtual void OnUIRender() override
 	{
 		ImGui::Begin("Settings");
@@ -37,12 +47,14 @@ public:
 		Walnut::Timer timer;
 
 		m_renderer.handle_size(m_viewer_width, m_viewer_height);
-		m_renderer.render();
+		m_camera.handle_size(m_viewer_width, m_viewer_height);
+		m_renderer.render(m_camera);
 
 		m_last_render_time = timer.ElapsedMillis();
 	}
 private:
 	Renderer m_renderer;
+	Camera m_camera;
 	uint32_t m_viewer_width;
 	uint32_t m_viewer_height;
 	float m_last_render_time = 0;
