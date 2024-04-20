@@ -13,6 +13,7 @@ public:
 	{
 		ImGui::Begin("Settings");
 		ImGui::Text("FPS: %.3f", 1000 / m_last_render_time);
+		ImGui::Text("TPF: %.f ms", m_last_render_time);
 		if (ImGui::Button("Render")) {
 			Render();
 		}
@@ -21,8 +22,8 @@ public:
 		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
 		ImGui::Begin("Viewer");
-		m_viewer_width = ImGui::GetContentRegionAvail().x;
-		m_viewer_height = ImGui::GetContentRegionAvail().y;
+		m_viewer_width = (int)ImGui::GetContentRegionAvail().x;
+		m_viewer_height = (int)ImGui::GetContentRegionAvail().y;
 		auto final_image = m_renderer.get_final_image();
 		if (final_image) {
 			ImGui::Image(final_image->GetDescriptorSet(), { (float)final_image->GetWidth(), (float)final_image->GetHeight() });

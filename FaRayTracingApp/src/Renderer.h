@@ -16,7 +16,7 @@ public:
 	std::shared_ptr<Walnut::Image> get_final_image() const;
 
 private:
-	uint32_t pixel_shader(glm::vec2 coordinates);
+	glm::vec4 pixel_shader(glm::vec2 coordinates);
 
 private:
 

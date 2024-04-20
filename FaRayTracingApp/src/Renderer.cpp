@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include "Walnut/Random.h"
+#include "utils.h"
 
 void Renderer::render()
 {
@@ -10,7 +11,11 @@ void Renderer::render()
 			glm::vec2 coordinates = { (float)x / (float)m_final_image->GetWidth(), (float)y / (float)m_final_image->GetHeight() };
 			// convert from 0,1 to -1,1
 			coordinates = coordinates * 2.0f - 1.0f;
-			m_final_image_data[x + y*m_final_image->GetWidth()] = pixel_shader(coordinates);
+
+			// basically get the color as vec and convert it to 32 bit uint
+			glm::vec4 pixel_color_vec = pixel_shader(coordinates);
+			pixel_color_vec = glm::clamp(pixel_color_vec, glm::vec4(0.0f), glm::vec4(1.0f));
+			m_final_image_data[x + y * m_final_image->GetWidth()] = Utils::vec_to_rgba(pixel_color_vec);
 		}
 	}
 	m_final_image->SetData(m_final_image_data);
@@ -39,9 +44,9 @@ std::shared_ptr<Walnut::Image> Renderer::get_final_image() const
 	return m_final_image;
 }
 
-uint32_t Renderer::pixel_shader(glm::vec2 coordinates)
+glm::vec4 Renderer::pixel_shader(glm::vec2 coordinates)
 {
-	glm::vec3 ray_origin(0.0f, 0.0f, 2.0f);
+	glm::vec3 ray_origin(0.0f, 0.0f, 1.0f);
 	glm::vec3 ray_direction(coordinates.x, coordinates.y, -1.0f);
 	ray_direction = glm::normalize(ray_direction);
 
@@ -53,10 +58,28 @@ uint32_t Renderer::pixel_shader(glm::vec2 coordinates)
 	// compute delta
 	float delta_discriminant = b * b - 4.0f * a * c;
 	
-	// positive means more than one solution
-	if (delta_discriminant >= 0)
+	// negative means no hit
+	if (delta_discriminant < 0) 
 	{
-		return 0xffff00ff;
+		return glm::vec4(0, 0, 0, 1);
 	}
-	return 0xff000000;
+	// otherwise we have two solutions, one of them is the one facing our camera
+	// tthe one with the shortest distance is the relevant one here
+	float closest_t = (-b - glm::sqrt(delta_discriminant)) / 2 * a;
+	float other_t = (-b + glm::sqrt(delta_discriminant)) / 2 * a;
+	// solving the equation
+	glm::vec3 nearest_hit_point = ray_origin + ray_direction * closest_t;
+	glm::vec3 nearest_hit_point_normal = glm::normalize(nearest_hit_point); // typically here we consider the origin but it's 0
+
+	// define a light source
+	// think about it in the 3D space
+	glm::vec3 light_src_ray = glm::normalize(glm::vec3(-1, -1, -1)); 
+	// basically if light ray and normal are in reverse directions we get the best lighting
+	// At 90d we have the least
+	// more than that means we are at the other side so we just clamp with the max op because the dot is negative
+	float light_intensity = glm::max(glm::dot(nearest_hit_point_normal, -light_src_ray), 0.0f);
+	
+	// apply intensity on initial color
+	glm::vec3 sphere_color = glm::vec3(1, 0, 1) * light_intensity;
+	return glm::vec4(sphere_color, 1.0f);
 }
