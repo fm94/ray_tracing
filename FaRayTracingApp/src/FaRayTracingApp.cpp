@@ -1,18 +1,23 @@
-#include "Walnut/Application.h"
-#include "Walnut/EntryPoint.h"
+#include <Walnut/Application.h>
+#include <Walnut/EntryPoint.h>
 
-#include "Walnut/Image.h"
-#include "Walnut/Timer.h"
+#include <Walnut/Image.h>
+#include <Walnut/Timer.h>
 
 #include "Renderer.h"
 #include "Camera.h"
+#include "Scene.h";
 
+#include <glm/gtc/type_ptr.hpp>
 
 class MainLayer : public Walnut::Layer
 {
 public:
-	MainLayer(): m_camera(45.0f, 0.1f, 100.0f)
-	{}
+	MainLayer() : m_camera(45.0f, 0.1f, 100.0f)
+	{
+		m_scene.spheres.push_back(Sphere{ glm::vec3{ 0.0f, 0.0f, 0.0f }, 0.5f, glm::vec3{ 1.0f, 0.0f, 1.0f } });
+		m_scene.spheres.push_back(Sphere{ glm::vec3{ 0.0f, 0.0f, -5.0f }, 1.5f, glm::vec3{ 0.2f, 0.3f, 1.0f } });
+	}
 
 	virtual void OnUpdate(float time_step) override
 	{
@@ -23,11 +28,25 @@ public:
 	{
 		ImGui::Begin("Settings");
 		ImGui::Text("FPS: %.3f", 1000 / m_last_render_time);
-		ImGui::Text("TPF: %.f ms", m_last_render_time);
+		//ImGui::Text("TPF: %.f ms", m_last_render_time);
 		if (ImGui::Button("Render")) {
 			Render();
 		}
 		ImGui::End();
+
+		ImGui::Begin("Scene");
+		for (size_t i = 0; i < m_scene.spheres.size(); i++) {
+			ImGui::PushID(i);
+			// alias
+			Sphere& sphere = m_scene.spheres[i];
+			ImGui::DragFloat3("Position", glm::value_ptr(sphere.position), 0.1f);
+			ImGui::DragFloat("Radius", &sphere.radius, 0.1f);
+			ImGui::ColorEdit3("Albedo", glm::value_ptr(sphere.albedo));
+			ImGui::Separator();
+			ImGui::PopID();
+		}
+		ImGui::End();
+
 
 		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
@@ -48,13 +67,14 @@ public:
 
 		m_renderer.handle_size(m_viewer_width, m_viewer_height);
 		m_camera.handle_size(m_viewer_width, m_viewer_height);
-		m_renderer.render(m_camera);
+		m_renderer.render(m_scene, m_camera);
 
 		m_last_render_time = timer.ElapsedMillis();
 	}
 private:
 	Renderer m_renderer;
 	Camera m_camera;
+	Scene m_scene;
 	uint32_t m_viewer_width;
 	uint32_t m_viewer_height;
 	float m_last_render_time = 0;

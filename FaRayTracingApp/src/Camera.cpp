@@ -4,7 +4,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "Walnut/Input/Input.h"
+#include <Walnut/Input/Input.h>
 
 using namespace Walnut;
 
@@ -83,8 +83,8 @@ void Camera::on_update(float time_step)
 		float pitch_delta = delta.y * get_rotation_speed(); // rotation up-down
 		float yaw_delta = delta.x * get_rotation_speed(); // rotation right-left
 
-		glm::quat q = glm::normalize(glm::cross(glm::angleAxis(-pitch_delta, right_direction),
-			glm::angleAxis(-yaw_delta, glm::vec3(0.f, 1.0f, 0.0f))));
+		glm::quat q = glm::normalize(glm::cross(glm::angleAxis(pitch_delta, right_direction),
+			glm::angleAxis(yaw_delta, glm::vec3(0.f, 1.0f, 0.0f))));
 		m_forward_direction = glm::rotate(q, m_forward_direction);
 
 		moved = true;
