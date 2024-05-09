@@ -12,10 +12,10 @@ Camera::Camera(float vertical_fov, float near_clip, float far_clip)
 	: m_vertical_fov(vertical_fov), m_near_clip(near_clip), m_far_clip(far_clip)
 {
 	m_forward_direction = glm::vec3(0, 0, -1);
-	m_position = glm::vec3(0, 0, 3);
+	m_position = glm::vec3(0, 0, 6);
 }
 
-void Camera::on_update(float time_step)
+bool Camera::on_update(float time_step)
 {
 	glm::vec2 mousePos = Input::GetMousePosition();
 	glm::vec2 delta = (mousePos - m_last_mouse_position) * 0.002f;
@@ -24,7 +24,7 @@ void Camera::on_update(float time_step)
 	if (!Input::IsMouseButtonDown(MouseButton::Right))
 	{
 		Input::SetCursorMode(CursorMode::Normal);
-		return;
+		return false;
 	}
 
 	Input::SetCursorMode(CursorMode::Locked);
@@ -84,7 +84,7 @@ void Camera::on_update(float time_step)
 		float yaw_delta = delta.x * get_rotation_speed(); // rotation right-left
 
 		glm::quat q = glm::normalize(glm::cross(glm::angleAxis(pitch_delta, right_direction),
-			glm::angleAxis(yaw_delta, glm::vec3(0.f, 1.0f, 0.0f))));
+			glm::angleAxis(-yaw_delta, glm::vec3(0.f, 1.0f, 0.0f))));
 		m_forward_direction = glm::rotate(q, m_forward_direction);
 
 		moved = true;
@@ -95,6 +95,7 @@ void Camera::on_update(float time_step)
 		recalculate_view();
 		recalculate_ray_directions();
 	}
+	return moved;
 }
 
 void Camera::handle_size(uint32_t width, uint32_t height)

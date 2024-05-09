@@ -1,22 +1,54 @@
 #include "Renderer.h"
 #include <Walnut/Random.h>
 #include "Utils.h"
+#include <execution>
 
 void Renderer::render(const Scene& scene, const Camera& camera)
 {
 	m_active_scene = &scene;
 	m_active_camera = &camera;
 
+	if (m_frame_index == 1)
+		memset(m_accumulation_data, 0, m_final_image->GetWidth() * m_final_image->GetHeight() * sizeof(glm::vec4));
+
+	// regarding mutli-threading, I tried all solutions proposed in the github issue but none seems to outperform simple for_each
+#define MT 1
+#if MT
+	std::for_each(std::execution::par, m_image_v_iter.begin(), m_image_v_iter.end(),
+		[this](uint32_t y)
+		{
+			std::for_each(std::execution::par, m_image_h_iter.begin(), m_image_h_iter.end(),
+			[this, y](uint32_t x)
+				{
+					glm::vec4 color = ray_gen(x, y);
+					m_accumulation_data[x + y * m_final_image->GetWidth()] += color;
+					glm::vec4 accumulated_color = m_accumulation_data[x + y * m_final_image->GetWidth()];
+					accumulated_color /= (float)m_frame_index;
+					accumulated_color = glm::clamp(accumulated_color, glm::vec4(0.0f), glm::vec4(1.0f));
+					m_final_image_data[x + y * m_final_image->GetWidth()] = Utils::vec_to_rgba(accumulated_color);
+				});
+		});
+#else
 	for (uint32_t y=0; y < m_final_image->GetHeight(); y++)
 	{
 		for (uint32_t x = 0; x < m_final_image->GetWidth(); x++)
 		{
 			glm::vec4 color = ray_gen(x, y);
-			color = glm::clamp(color, glm::vec4(0.0f), glm::vec4(1.0f));
-			m_final_image_data[x + y * m_final_image->GetWidth()] = Utils::vec_to_rgba(color);
+			m_accumulation_data[x + y * m_final_image->GetWidth()] += color;
+			glm::vec4 accumulated_color = m_accumulation_data[x + y * m_final_image->GetWidth()];
+			accumulated_color /= (float)m_frame_index;
+			accumulated_color = glm::clamp(accumulated_color, glm::vec4(0.0f), glm::vec4(1.0f));
+			m_final_image_data[x + y * m_final_image->GetWidth()] = Utils::vec_to_rgba(accumulated_color);
 		}
 	}
+#endif
+
 	m_final_image->SetData(m_final_image_data);
+
+	if (m_settings.accumulate)
+		m_frame_index++;
+	else
+		m_frame_index = 1;
 }
 
 void Renderer::handle_size(uint32_t width, uint32_t height)
@@ -34,7 +66,16 @@ void Renderer::handle_size(uint32_t width, uint32_t height)
 	}
 	delete[] m_final_image_data;
 	m_final_image_data = new uint32_t[width * height];
-	
+
+	delete[] m_accumulation_data;
+	m_accumulation_data = new glm::vec4[width * height];
+
+	m_image_h_iter.resize(width);
+	m_image_v_iter.resize(height);
+	for (uint32_t i = 0; i < width; i++)
+		m_image_h_iter[i] = i;
+	for (uint32_t i = 0; i < height; i++)
+		m_image_v_iter[i] = i;
 }
 
 std::shared_ptr<Walnut::Image> Renderer::get_final_image() const
@@ -51,34 +92,35 @@ glm::vec4 Renderer::ray_gen(uint32_t x, uint32_t y)
 	glm::vec3 color(0.0f);
 	float multiplier = 1.0f;
 
-	int bounces = 2;
+	int bounces = 3;
 	for (int i = 0; i < bounces; i++)
 	{
 		Renderer::HitPayload payload = trace_ray(ray);
 		if (payload.hit_distance < 0.0f)
 		{
-			glm::vec3 sky_color = glm::vec3(0.0f, 0.0f, 0.0f);
+			glm::vec3 sky_color = glm::vec3(0.6f, 0.7f, 0.9f);
 			color += sky_color * multiplier;
 			break;
 		}
 
 		// define a light source
 		// think about it in the 3D space
-		glm::vec3 light_src_ray = glm::normalize(glm::vec3(-1, -1, -1));
+		glm::vec3 light_src_ray = glm::normalize(glm::vec3(-1, 1, -1));
 		// basically if light ray and normal are in reverse directions we get the best lighting
 		// At 90d we have the least
 		// more than that means we are at the other side so we just clamp with the max op because the dot is negative
 		float light_intensity = glm::max(glm::dot(payload.world_normal, -light_src_ray), 0.0f);
 
 		const Sphere& closest_sphere = m_active_scene->spheres[payload.object_index];
-		// apply intensity on initial color
-		glm::vec3 sphere_color = closest_sphere.albedo * light_intensity;
+		// apply intensity on initial color using material
+		const Material& material = m_active_scene->materials[closest_sphere.material_index];
+		glm::vec3 sphere_color = material.albedo * light_intensity;
 		color += sphere_color * multiplier;
 
 		multiplier *= 0.7f;
 
 		ray.origin = payload.world_position + payload.world_normal * 0.0001f;
-		ray.direction = glm::reflect(ray.direction, payload.world_normal);
+		ray.direction = glm::reflect(ray.direction, payload.world_normal + material.roughness * Walnut::Random::Vec3(-0.5f, 0.5f));
 	}
 
 	return glm::vec4(color, 1.0f);
