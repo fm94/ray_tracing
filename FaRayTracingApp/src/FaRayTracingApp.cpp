@@ -173,7 +173,7 @@ public:
 			GifBegin(&m_gif_writer, filename, final_image->GetWidth(), final_image->GetHeight(), 2, 8, true);
 			m_first_pass = false;
 		}
-		if (m_renderer.get_frame_index() == 1200) {
+		if (m_renderer.get_frame_index() == 100000) {
 			m_renderer.reset_frame_index();
 
 			// fix this hack for flipping
