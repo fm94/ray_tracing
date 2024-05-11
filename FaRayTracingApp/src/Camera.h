@@ -9,6 +9,7 @@ public:
 	Camera(float vertical_fov, float near_clip, float far_clip);
 
 	bool on_update(float time_step);
+	void custom_mov_rotation();
 	void handle_size(uint32_t width, uint32_t height);
 
 	const glm::mat4& get_projection() const { return m_projection; }

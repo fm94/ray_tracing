@@ -13,7 +13,7 @@ class Renderer
 public:
 	struct Settings
 	{
-		bool accumulate = true;
+		bool accumulate = false;
 	};
 public:
 	Renderer() = default;
@@ -21,6 +21,8 @@ public:
 	void handle_size(uint32_t width, uint32_t height);
 	std::shared_ptr<Walnut::Image> get_final_image() const;
 	void reset_frame_index() { m_frame_index = 1; };
+	uint32_t get_frame_index() { return m_frame_index; };
+	const uint32_t* get_frame_data() { return m_final_image_data; };
 	Settings& get_settings() { return m_settings; };
 
 private:
@@ -28,7 +30,7 @@ private:
 
 	struct HitPayload
 	{
-		float hit_distance = -1.0f;
+		float hit_distance;
 		glm::vec3 world_position;
 		glm::vec3 world_normal;
 		int object_index;

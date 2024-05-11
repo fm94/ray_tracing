@@ -85,45 +85,47 @@ std::shared_ptr<Walnut::Image> Renderer::get_final_image() const
 
 glm::vec4 Renderer::ray_gen(uint32_t x, uint32_t y)
 {
-	Ray ray;
-	ray.origin = m_active_camera->get_position();
-	ray.direction = m_active_camera->get_ray_directions()[x + y * m_final_image->GetWidth()];
+	// origin and direction
+	Ray ray{ m_active_camera->get_position(), m_active_camera->get_ray_directions()[x + y * m_final_image->GetWidth()] };
 
-	glm::vec3 color(0.0f);
-	float multiplier = 1.0f;
+	glm::vec3 light{0.0f};
+	glm::vec3 contribution{ 1.0f };
 
-	int bounces = 3;
+	int bounces = 10;
 	for (int i = 0; i < bounces; i++)
 	{
 		Renderer::HitPayload payload = trace_ray(ray);
 		if (payload.hit_distance < 0.0f)
 		{
+			// remove sky because we are using the lamp
 			glm::vec3 sky_color = glm::vec3(0.6f, 0.7f, 0.9f);
-			color += sky_color * multiplier;
+			light += sky_color * contribution;
 			break;
 		}
 
 		// define a light source
 		// think about it in the 3D space
-		glm::vec3 light_src_ray = glm::normalize(glm::vec3(-1, 1, -1));
+		//glm::vec3 light_src_ray = glm::normalize(glm::vec3(-1, 1, -1));
 		// basically if light ray and normal are in reverse directions we get the best lighting
 		// At 90d we have the least
 		// more than that means we are at the other side so we just clamp with the max op because the dot is negative
-		float light_intensity = glm::max(glm::dot(payload.world_normal, -light_src_ray), 0.0f);
+		//float light_intensity = glm::max(glm::dot(payload.world_normal, -light_src_ray), 0.0f);
 
 		const Sphere& closest_sphere = m_active_scene->spheres[payload.object_index];
 		// apply intensity on initial color using material
 		const Material& material = m_active_scene->materials[closest_sphere.material_index];
-		glm::vec3 sphere_color = material.albedo * light_intensity;
-		color += sphere_color * multiplier;
+		//glm::vec3 sphere_color = material.albedo * light_intensity;
+		//light += sphere_color * contribution;
 
-		multiplier *= 0.7f;
+		//contribution *= 0.5f;
+		contribution *= material.albedo;
+		light += material.get_emission();
 
 		ray.origin = payload.world_position + payload.world_normal * 0.0001f;
-		ray.direction = glm::reflect(ray.direction, payload.world_normal + material.roughness * Walnut::Random::Vec3(-0.5f, 0.5f));
+		//ray.direction = glm::reflect(ray.direction, payload.world_normal + material.roughness * Walnut::Random::Vec3(-0.5f, 0.5f));
+		ray.direction = glm::normalize(payload.world_normal + Walnut::Random::InUnitSphere());
 	}
-
-	return glm::vec4(color, 1.0f);
+	return glm::vec4(light, 1.0f);
 }
 
 Renderer::HitPayload Renderer::trace_ray(const Ray& ray)
@@ -152,7 +154,7 @@ Renderer::HitPayload Renderer::trace_ray(const Ray& ray)
 		}
 		// otherwise we have two solutions, one of them is the one facing our camera
 		// tthe one with the shortest distance is the relevant one here
-		float closest_t = (-b - glm::sqrt(delta_discriminant)) / 2 * a;
+		float closest_t = (-b - glm::sqrt(delta_discriminant)) / (2.0f * a);
 		// also check if t is negative because that means the object is behind
 		if (closest_t > 0.0f && closest_t < current_hist_distance) {
 			current_hist_distance = closest_t;
@@ -180,7 +182,7 @@ Renderer::HitPayload Renderer::handle_closest_hit(const Ray& ray, float hit_dist
 	// solving the equation
 	glm::vec3 shifted_origin = ray.origin - closest_sphere.position;
 	// typically here we consider the origin but it's 0
-// update: this is now fixed
+	// update: this is now fixed
 	payload.world_position = shifted_origin + ray.direction * hit_distance;
 	payload.world_normal = glm::normalize(payload.world_position);
 	// shift back but after normalization
@@ -191,5 +193,8 @@ Renderer::HitPayload Renderer::handle_closest_hit(const Ray& ray, float hit_dist
 
 Renderer::HitPayload Renderer::handle_miss()
 {
-	return HitPayload();
+	//return HitPayload();
+	Renderer::HitPayload payload;
+	payload.hit_distance = -1.0f;
+	return payload;
 }

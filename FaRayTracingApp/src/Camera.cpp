@@ -11,8 +11,8 @@ using namespace Walnut;
 Camera::Camera(float vertical_fov, float near_clip, float far_clip)
 	: m_vertical_fov(vertical_fov), m_near_clip(near_clip), m_far_clip(far_clip)
 {
-	m_forward_direction = glm::vec3(0, 0, -1);
-	m_position = glm::vec3(0, 0, 6);
+	m_forward_direction = glm::vec3(0.037, -0.484, -0.874);
+	m_position = glm::vec3(-0.262, 4.880, 7.807);
 }
 
 bool Camera::on_update(float time_step)
@@ -98,6 +98,25 @@ bool Camera::on_update(float time_step)
 	return moved;
 }
 
+void Camera::custom_mov_rotation()
+{
+	// this function creates an artifical object rotation scene and is used for the gif posted on github
+	glm::vec2 delta{ 0.06f, 0.0f };
+	glm::vec3 right_direction = glm::cross(m_forward_direction, m_up_direction);
+	m_position -= right_direction * m_speed * 0.06f; // timestep
+
+	// rotation logic
+	float pitch_delta = delta.y * get_rotation_speed(); // rotation up-down
+	float yaw_delta = delta.x * get_rotation_speed(); // rotation right-left
+
+	glm::quat q = glm::normalize(glm::cross(glm::angleAxis(pitch_delta, right_direction),
+		glm::angleAxis(-yaw_delta, glm::vec3(0.f, 1.0f, 0.0f))));
+	m_forward_direction = glm::rotate(q, m_forward_direction);
+
+	recalculate_view();
+	recalculate_ray_directions();
+}
+
 void Camera::handle_size(uint32_t width, uint32_t height)
 {
 	if (width == m_viewport_width && height == m_viewport_height)
@@ -139,8 +158,8 @@ void Camera::recalculate_ray_directions()
 			coord = coord * 2.0f - 1.0f; // -1 -> 1
 
 			glm::vec4 target = m_inverse_projection * glm::vec4(coord.x, coord.y, 1, 1);
-			glm::vec3 rayDirection = glm::vec3(m_inverse_view * glm::vec4(glm::normalize(glm::vec3(target) / target.w), 0)); // World space
-			m_ray_directions[x + y * m_viewport_width] = rayDirection;
+			glm::vec3 ray_direction = glm::vec3(m_inverse_view * glm::vec4(glm::normalize(glm::vec3(target) / target.w), 0));
+			m_ray_directions[x + y * m_viewport_width] = ray_direction;
 		}
 	}
 }
